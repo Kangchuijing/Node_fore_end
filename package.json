@@ -1,0 +1,16 @@
+{
+  "name": "end",
+  "version": "1.0.0",
+  "main": "index.js",
+  "author": "Kangchuijing <1806993519@qq.com>",
+  "license": "MIT",
+  "scripts": {
+    "start": "supervisor server.js"
+  },
+  "dependencies": {
+    "async": "^2.6.1",
+    "body-parser": "^1.18.3",
+    "express": "^4.16.4",
+    "mongodb": "^3.1.10"
+  }
+}
