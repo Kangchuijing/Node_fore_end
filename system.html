@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>
+        管理系统内部页面
+    </title>
+    <link rel='stylesheet' href='./public/bootstrap/css/bootstrap.min.css' />
+    <link rel="stylesheet" href="./public//css/reset.css">
+    <link rel="stylesheet" href="./public//css/common.css">
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="bg-primary header_title">
+                <div class="title">
+                    <a href="/">千锋后台管理系统</a>
+                </div>
+                <div class="person">
+                    <div class="user">欢迎您,
+                        <span id="userInfo"></span>
+                    </div>
+                    <button type="button" class="btn btn-primary">退出</button>
+                </div>
+            </div>
+        </div>
+        <div class="main">
+            <div class="menu">
+                <ul class="nav nav-pills nav-stacked nav-pills-stacked-example">
+                    <li role="presentation" class="active">
+                        <a href="javasript:void(0);" style="font-size: 18px;">后台管理</a>
+                    </li>
+                    <li role="presentation" id="usersManager">
+                        <a href="/users">用户管理</a>
+                    </li>
+                    <li role="presentation " id="pinpai">
+                        <a href="/pinpai">品牌管理</a>
+                    </li>
+                    <li role="presentation ">
+                        <a href="phone">手机管理</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+        <div class="footer ">我是尾部</div>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+    <script src="./public/js/cookie.js"></script>
+    <script>
+        $(function () {
+            // 自调用函数，判断用户是否登录以及显示用户信息在页面上
+            (function () {
+                var isUserLogin = cookie.getCookie('user');
+                var user = {
+                    usersManager: null,    // 操作用户列表
+                    userInfo: null,         // 显示用户信息
+                    init: function () {    // 初始化用户信息对象
+                        this.usersManager = $("#usersManager");
+                        this.userInfo = $("#userInfo");
+                    }
+                };
+
+                user.init();    // 初始化获取jq对象
+
+                // 发现一个问题，可能会形成回调地狱，我们将这些ajax操作放到promise中去执行
+                var pro = new Promise(function (success, fail) {
+                    if (isUserLogin) {   // 用来判断用户是否登录，如果登录了，那么就可以进行下面的操作
+                        success();      // 用户已登录
+                    } else {
+                        error();        // 用户未登录
+                    }
+                });
+                pro.then(function () {  // 如果用户已经登录
+                    if (isUserLogin.isAdmin) {    // 从cookie中得到用户的信息，判断用户时候时管理员用户
+                        user.userInfo.text(isUserLogin.nickname + ',' + '(管理员用户)');
+
+                        // 当点击用户管理的时候，又发送一次ajax请求
+                        user.usersManager.click(function () {
+                            $.get('/user/userManage', function (res) {
+                                console.log(res);
+                            });
+                        });
+                    }
+                    else {
+                        user.userInfo.text(isUserLogin.nickname + ',' + '(普通用户)');
+                        user.usersManager.remove();
+                    }
+                }, function () {    // 如果用户没有登录
+                    alert('登录信息已过期，请重新登录');
+                    location.href = 'http://127.0.0.1:8080/login.html';
+                })
+
+            })();
+        });
+    </script>
+</body>
+
+</html>
