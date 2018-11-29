@@ -74,7 +74,6 @@ app.post('/user/regesit', function (req, res, next) {
     var sex = req.body.sex;
     var isAdmin = req.body.isAdmin;
     var power = req.body.power
-    console.log(sex);
     var checkComplete = {};   // 服务端返回给前端的处理信息
     // 开始服务端的二次验证
     (
@@ -155,13 +154,11 @@ app.post('/user/regesit', function (req, res, next) {
 
 // 展示用户管理界面
 app.get('/user/userManage', function (req, res) {
-    var page = parseInt(req.body.page) || 1;   // 展示当前所在的页数，如果是第一次或者是未传值，默认为第一页
-    var pageSize = parseInt(req.body.pageSize) || 5;  // 每一页显示数据的条数，如果未传值，默认为5条数据
+    console.log(req.query);
+    var page = parseInt(req.query.page) || 1;   // 展示当前所在的页数，如果是第一次或者是未传值，默认为第一页
+    var pageSize = parseInt(req.query.pageSize) || 5;  // 每一页显示数据的条数，如果未传值，默认为5条数据
+    var totalSize = 0;   // 数据总条数
     var result = {};    // 返回给前端的信息
-
-    // test 测试数据
-    // res.send('我是数据');
-    // return;
 
     MongoClient.connect(url, { useNewUrlParser: true }, function (error, client) {
         if (error) {
@@ -175,24 +172,52 @@ app.get('/user/userManage', function (req, res) {
         // 如果数据库连接成功，此时对数据库进行操作
         var db = client.db('project');
         // 对用户列表信息进行分页查询
-        db.collection('users').find().limit(pageSize).skip(pageSize * (page - 1)).toArray(function (error, data) {
-            if (error) {   // 如果查询过程中出现了错误
-                console.log('数据查询失败');
+        // 1、查询数据总条数
+        async.series([function (cb) {
+            db.collection('users').find().count(function (error, count) {
+                if (error) {
+                    console.log('数据查询失败');
+                    cb('数据库查询失败');
+                }
+                else {
+                    totalSize = count;
+                    cb(null);
+                }
+            });
+        }, function (cb) {
+            db.collection('users').find().limit(pageSize).skip(pageSize * (page - 1)).toArray(function (error, data) {
+                if (error) {   // 如果查询过程中出现了错误
+                    console.log('数据查询失败');
+                    cb('数据查询失败');
+                } else if (data.length <= 0) {  // 如果数据库中没有数据
+                    console.log('数据库中无数据');
+                    cb('数据库中没有更多数据了');
+                } else {    // 此时查询到了数据
+                    console.log('数据查询成功');
+                    cb(null, data);
+                }
+            });
+        }], function (error, results) {
+            if (error) {
                 result.code = -1;
-                result.msg = '数据查询失败';
-            } else if (data.length <= 0) {  // 如果数据库中没有数据
-                console.log('数据库中无数据');
-                result.code = -1;
-                result.msg = '数据库中没有更多数据了';
-            } else {    // 此时查询到了数据
-                console.log('数据查询成功');
+                result.msg = error;
+                res.json(result);
+                return;
+            } else {
+                // 计算总页数
+                var totalPage = Math.ceil(totalSize / pageSize);
+
                 result.code = 0;
                 result.msg = '数据查询成功';
-                result.data = data;
+                result.data = results[1];
+                result.totalSize = totalSize;
+                result.totalPage = totalPage;
+                res.json(result);
+                console.log(results[1]);
+                return;
             }
-            res.json(result);   // 将数据响应给前端
-            client.close();     // 关闭数据库的连接
         });
+
 
     })
 
