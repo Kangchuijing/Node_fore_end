@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>注册页面</title>
+    <link rel="stylesheet" href="./public/bootstrap/css/bootstrap.min.css">
+    <link rel="stylesheet" href="./public/css/reset.css">
+    <link rel="stylesheet" href="./public/css/login.css">
+</head>
+
+<body>
+    <div class="container-fluid">
+        <h1>千锋后台管理系统用户注册</h1>
+        <div class="form" style="width: 1000px">
+            <form class="form-horizontal" id="regesit_form">
+                <div class="form-group">
+                    <label for="inputUser" class="col-sm-2 control-label">请输入一个用户名</label>
+                    <div class="col-sm-10">
+                        <input type="text" class="form-control" id="inputUser" placeholder="请输入您的用户名" name="user">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="inputNickname" class="col-sm-2 control-label">请输入一个的昵称</label>
+                    <div class="col-sm-10">
+                        <input type="text" class="form-control" id="inputNickname" placeholder="请输入您的昵称" name="nickname">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="inputPassword" class="col-sm-2 control-label">请输入密码</label>
+                    <div class="col-sm-10">
+                        <input type="password" class="form-control" id="inputPassword" placeholder="请输入您的密码" name="password">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="inputSex" class="col-sm-2 control-label">请选择您的性别</label>
+                    <div class="col-sm-10">
+                        <input type="radio" class="inputSex" name="sex" value="男" checked>男
+                        <input type="radio" class="inputSex" name="sex" value="女">女
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="selectIsAdmin" class="col-sm-2 control-label">请选择您的身份</label>
+                    <div class="col-sm-10">
+                        <select name="isAdmin" id="selectIsAdmin">
+                            <option value="true">管理员用户</option>
+                            <option value="false" selected>普通用户</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="selectPower" class="col-sm-2 control-label">请选择您的权限级别</label>
+                    <div class="col-sm-10">
+                        <select name="power" id="selectPower">
+                            <option value="over-max">over-max</option>
+                            <option value="max">max</option>
+                            <option value="middle" selected>middle</option>
+                            <option value="lower">lower</option>
+                            <option value="more-lower">more-lower</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="col-sm-offset-2 col-sm-10">
+                        <div class="checkbox">
+                            <label>
+                                <input type="checkbox" id="agree"> 同意千锋注册用户许可协议
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="col-sm-offset-2 col-sm-10">
+                        <button class="btn btn-default" id="regesit">立即注册</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+    <script src="./public/js/cookie.js"></script>
+    <script>    
+        $(function () {
+
+            // 用户信息注册
+            var regesit = {
+                inputUser: null,    // 用户名
+                inputNickname: null, // 昵称
+                inputPassword: null, // 密码
+                inputSex: null,     // 性别
+                selectIsAdmin: null, // 管理员用户
+                selectPower: null,  // 权限级别
+                agree: null,        // 用户是否同意许可协议
+                regesitBtn: null,
+                regesit_form: null,
+                init: function () {
+                    this.inputUser = $("#inputUser");
+                    this.inputNickname = $("#inputNickname");
+                    this.inputPassword = $("#inputPassword");
+
+                    this.selectIsAdmin = $("#selectIsAdmin");
+                    this.selectPower = $("#selectPower");
+                    this.agree = $("#agree");
+                    this.regesitBtn = $("#regesit");
+                    this.regesit_form = $("#regesit_form");
+                }
+            }
+            regesit.init();
+
+            // 注册按钮的点击事件，用来验证用户是否输入了足够的信息，如果没有，将阻止表单的提交
+            regesit.regesitBtn.click(function () {
+                if (!regesit.agree.prop('checked')) {
+                    alert('请同意许可协议');
+                } else if (!regesit.inputUser.val() || !regesit.inputNickname.val() || !regesit.inputPassword.val()) {
+                    alert('请将您的表单补充完整后提交！');
+                } else {
+                    // 下面这个性别选择放在这里的原因是因为初始化时会默认获取到性别为男，而这个单选按钮有两个，使用jq选择器默认就是选择的第一个
+                    regesit.inputSex = $("input:checked");
+                    $.post(
+                        'http://localhost:3000/user/regesit',
+                        {
+                            user: regesit.inputUser.val(),
+                            nickname: regesit.inputNickname.val(),
+                            password: regesit.inputPassword.val(),
+                            sex: regesit.inputSex.val(),
+                            isAdmin: regesit.selectIsAdmin.val(),
+                            power: regesit.selectPower.val()
+                        },
+                        function (res) {
+                            alert(res.msg);
+                            if (res.code == 0) {
+                                location.href = 'http://127.0.0.1:8080/login.html';
+                            } else {
+                                location.reload();
+                            }
+                        }
+                    )
+                }
+
+            });
+
+
+            regesit.regesit_form.submit(function () {
+                return false;
+            });
+
+        });
+    </script>
+</body>
+
+</html>
