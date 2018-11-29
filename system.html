@@ -53,6 +53,15 @@
                         </tbody>
                     </table>
                 </div>
+                <div class="button" id="button">
+                    <div class="btn-toolbar" role="toolbar" aria-label="...">
+                        <div class="btn-group" role="group" id="prev" aria-label="...">上一页</div>
+                        <div id="btn_group" class="fl" style="margin-left: 5px">
+                            <div class="btn-group active" role="group" aria-label="...">1</div>
+                        </div>
+                        <div class="btn-group" role="group" id="next" aria-label="...">下一页</div>
+                    </div>
+                </div>
             </div>
         </div>
         <div class="footer ">我是尾部</div>
@@ -88,7 +97,7 @@
                 <!-- 只能删除和修改非管理员的数据 -->
                {{if(!$value.isAdmin)}}
                  <a href="/users/delete?id=">修改</a> 
-                 <a href="/users/delete?id=">删除</a>
+                 <a href="/users/delete?id={{$value['_id']}}" class='delete'>删除</a>
                {{/if}}  
             </td>
                          
@@ -146,14 +155,12 @@
                                           <th>操作</th>
                                    </tr>
                                     `;
-                                    user.title[0].innerHTML = head;
-                                    // 渲染我们的数据
-                                    var html = template('users', {
-                                        array: res.data,
-                                        nickname: isUserLogin.nickname  // 传入用户的nickname，用来做数据的修改
-                                    });
-                                    // 将数据写入到DOM中
-                                    user.user_list[0].innerHTML = html;
+                                    var button = new Button();
+                                    button.buildButton(res.totalPage);
+                                    button.pageEvent(user, isUserLogin, head, res.data);
+                                    button.rendering(user, isUserLogin, head, res.data);
+                                    button.prevPage(user, isUserLogin, head);
+                                    button.nextPage(res.totalPage, user, isUserLogin, head);
                                 }
                             });
                         });
@@ -186,6 +193,130 @@
                     location.reload();
                 });
             })();
+
+            // 按钮点击换页功能
+
+            // 按钮构造函数
+            class Button {
+                constructor(btnObj) {
+                    this.prev = $("#prev");
+                    this.btn_group = $("#btn_group");
+                    this.next = $("#next");
+                    this.active = 1;  // 默认激活的按钮编号
+                    this.currentButton = null;
+
+                }
+
+                activeButton(ele) {
+                    // 这里简单的做一个排他
+                    this.btn_groups.each(function (index, item) {
+
+                        $(item).find(".btn-group").removeClass("active")
+                    })
+                    ele.addClass("active");
+                    this.active = ele.text();
+                }
+
+                // 点击上一页
+                prevPage(user, isUserLogin, head) {
+                    var _this = this;
+                    this.prev.click(function () {
+                        // 每次点击的时候将当前活动按钮减一
+                        _this.active = _this.active <= 1 ? 1 : --_this.active;
+                        // 保存当前点击的按钮,方便获取其中的数据
+                        _this.currentButton = $(".btn" + _this.active);
+                        // 将当前的按钮设置为高亮
+                        _this.activeButton(_this.currentButton);
+                        // 同时发送ajax请求从后台更新数据
+                        _this.getData(user, isUserLogin, head, _this.currentButton)
+                    })
+                }
+
+                // 为每个按钮注册点击事件
+                // 点击页数按钮显示相应的页数
+                pageEvent(user, isUserLogin, head) {
+                    var _this = this;
+                    var btnGroup = this.btn_group.find('.btn-group');
+                    btnGroup.click(function () {
+                        var that = this;
+                        // 将当前点击的按钮激活为活动按钮
+                        _this.activeButton($(this));
+                        _this.getData(user, isUserLogin, head, that);
+                    })
+                }
+
+
+                // 点击下一页
+                nextPage(totalPage, user, isUserLogin, head) {
+                    var _this = this;
+                    this.next.click(function () {
+                        // 每次点击的时候将当前活动按钮加一
+                        _this.active = _this.active >= totalPage ? totalPage : ++_this.active;
+                        // 保存当前操作的对象
+                        _this.currentButton = $(".btn" + _this.active);
+                        // 将当前操作的对象置为活动对象
+                        _this.activeButton(_this.currentButton);
+                        // 同时从后台获取更新数据
+                        _this.getData(user, isUserLogin, head, _this.currentButton)
+                    });
+                }
+
+                // 生成按钮的个数
+                buildButton(num) {
+                    var str = "";
+                    for (var i = 0; i < num; i++) {
+                        str += `
+                             <div id="btn_group" class="fl btn_groups" style="margin-left: 5px">
+                                 <div class="btn-group btn${i + 1}" role="group" aria-label="...">${i + 1}</div>
+                              </div>
+                          `;
+                    }
+                    this.btn_group.html(str);
+                    // 找到所有的按钮
+                    this.btn_groups = this.btn_group.find(".btn_groups");
+
+                    // 将当前点击的按钮激活为活动按钮
+                    this.activeButton(this.btn_group.find('.btn1'));
+
+                }
+
+                // 获取数据
+                getData(user, isUserLogin, head, that) {
+                    $.get('http://localhost:3000/user/userManage',
+                        {
+                            page: $(that).text()
+                        }, function (res) {
+
+                            if (res.code == 0) {
+                                user.title[0].innerHTML = head;
+                                // 渲染我们的数据
+                                var html = template('users', {
+                                    array: res.data,
+                                    nickname: isUserLogin.nickname  // 传入用户的nickname，用来做数据的修改
+                                });
+                                // 将数据写入到DOM中
+                                user.user_list[0].innerHTML = html;
+                            }
+                        }
+                    );
+                }
+
+                // 渲染页面
+                rendering(user, isUserLogin, head, data) {
+                    user.title[0].innerHTML = head;
+                    // 渲染我们的数据
+                    var html = template('users', {
+                        array: data,
+                        nickname: isUserLogin.nickname  // 传入用户的nickname，用来做数据的修改
+                    });
+                    // 将数据写入到DOM中
+                    user.user_list[0].innerHTML = html;
+
+                }
+
+            }
+
+
         });
     </script>
 </body>
