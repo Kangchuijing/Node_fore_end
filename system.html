@@ -21,7 +21,7 @@
                     <div class="user">欢迎您,
                         <span id="userInfo"></span>
                     </div>
-                    <button type="button" class="btn btn-primary">退出</button>
+                    <button type="button" class="btn btn-primary" id="exit">退出</button>
                 </div>
             </div>
         </div>
@@ -32,21 +32,69 @@
                         <a href="javasript:void(0);" style="font-size: 18px;">后台管理</a>
                     </li>
                     <li role="presentation" id="usersManager">
-                        <a href="/users">用户管理</a>
+                        <a class="cursor">用户管理</a>
                     </li>
                     <li role="presentation " id="pinpai">
-                        <a href="/pinpai">品牌管理</a>
+                        <a class="cursor">品牌管理</a>
                     </li>
                     <li role="presentation ">
-                        <a href="phone">手机管理</a>
+                        <a class="cursor">手机管理</a>
                     </li>
                 </ul>
+            </div>
+            <div id="data">
+                <div class="table">
+                    <table class="table table-hover">
+                        <thead id="title">
+
+                        </thead>
+                        <tbody id="list">
+
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
         <div class="footer ">我是尾部</div>
     </div>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
     <script src="./public/js/cookie.js"></script>
+    <script src="./public/js/template-web.js"></script>
+    <script id="users" type="text/html"> 
+        <!-- 使用浏览器端的模板引擎渲染我们的html代码 -->
+        {{each array}}
+        <tr>
+            <th scope="row">
+                <input type="checkbox">{{$index+1}}
+            </th>
+            <td>
+              {{$value.name}}
+            </td>
+            <td>
+              {{$value.nickname}}
+            </td>
+            <td>
+               {{$value.isAdmin?'是':'否' }} 
+            </td> 
+            <td>
+                {{$value.power}}
+            </td>
+       
+            <td>
+                <!-- 管理员用户可以修改自己的信息 -->
+                {{if($value.nickname == nickname)}} 
+                    <a href="/users/delete?id=">修改</a>
+                {{/if}}
+                <!-- 只能删除和修改非管理员的数据 -->
+               {{if(!$value.isAdmin)}}
+                 <a href="/users/delete?id=">修改</a> 
+                 <a href="/users/delete?id=">删除</a>
+               {{/if}}  
+            </td>
+                         
+        </tr>
+         {{/each}}
+    </script>
     <script>
         $(function () {
             // 自调用函数，判断用户是否登录以及显示用户信息在页面上
@@ -55,9 +103,13 @@
                 var user = {
                     usersManager: null,    // 操作用户列表
                     userInfo: null,         // 显示用户信息
+                    title: null,            // 表头
+                    user_list: null,        // 用户列表
                     init: function () {    // 初始化用户信息对象
                         this.usersManager = $("#usersManager");
                         this.userInfo = $("#userInfo");
+                        this.title = $("#title");
+                        this.user_list = $("#list");
                     }
                 };
 
@@ -77,8 +129,32 @@
 
                         // 当点击用户管理的时候，又发送一次ajax请求
                         user.usersManager.click(function () {
-                            $.get('/user/userManage', function (res) {
-                                console.log(res);
+                            $.get('http://localhost:3000/user/userManage', function (res) {
+                                alert(res.msg);
+                                // 如果响应码为0，表明数据成功查找，此时将数据渲染至页面
+                                if (res.code == 0) {
+
+                                    var head = `
+                                    <tr class="bg-info">
+                                        <th>
+                                             <input type="checkbox">全选
+                                        </th>
+                                          <th>姓名</th>
+                                          <th>昵称</th>
+                                          <th>管理员</th>
+                                          <th>权限</th>
+                                          <th>操作</th>
+                                   </tr>
+                                    `;
+                                    user.title[0].innerHTML = head;
+                                    // 渲染我们的数据
+                                    var html = template('users', {
+                                        array: res.data,
+                                        nickname: isUserLogin.nickname  // 传入用户的nickname，用来做数据的修改
+                                    });
+                                    // 将数据写入到DOM中
+                                    user.user_list[0].innerHTML = html;
+                                }
                             });
                         });
                     }
@@ -91,6 +167,24 @@
                     location.href = 'http://127.0.0.1:8080/login.html';
                 })
 
+            })();
+
+            // 点击退出登录
+            (function () {
+                var exit = {
+                    exit: null,
+                    init: function () {
+                        this.exit = $("#exit");
+                    }
+                };
+                exit.init(); // 初始化退出对象
+                // 当退出按钮点击时退出登录
+                exit.exit.click(function () {
+                    // 首先将cookie信息清除
+                    cookie.setCookie('user', '', new Date(0));
+                    // 清除cookie信息的同时刷新页面，此时获取不到页面的cookie信息，就会返回到登录页面
+                    location.reload();
+                });
             })();
         });
     </script>

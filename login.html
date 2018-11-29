@@ -32,7 +32,7 @@
                     <div class="col-sm-offset-2 col-sm-10">
                         <div class="checkbox">
                             <label>
-                                <input type="checkbox"> 记住密码
+                                <input type="checkbox" id="remember"> 记住密码
                             </label>
                         </div>
                     </div>
@@ -40,6 +40,7 @@
                 <div class="form-group">
                     <div class="col-sm-offset-2 col-sm-10">
                         <button class="btn btn-default" id="login">登录</button>
+                        <button class="btn btn-default" id="regesit">没有账号，去注册一个</button>
                     </div>
                 </div>
             </form>
@@ -57,12 +58,15 @@
             var $login = $("#login");  // 登录按钮
             var $inputUser = $("#inputUser"); // 用户信息输入框
             var $inputPassword = $("#inputPassword"); // 用户密码输入框
+            var $remember = $("#remember");   // 记住密码
+
             $login.click(function () {
                 var user = $inputUser.val();
                 var password = $inputPassword.val();
                 if (user.length == 0 || password.length == 0) {
                     alert('请输入用户名或者密码');
-                } else {
+                }
+                else {
                     $.post('http://localhost:3000/user/login',
                         {
                             user: user,
