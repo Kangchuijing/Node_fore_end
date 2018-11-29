@@ -4,6 +4,7 @@ var bodyParser = require('body-parser');
 var path = require('path');
 var async = require('async');
 var MongoClient = require('mongodb').MongoClient;
+var ObjectId = require('mongodb').ObjectId;
 var url = 'mongodb://127.0.0.1:27017';   // 后台数据库地址
 
 // 中间件 允许跨域访问
@@ -213,7 +214,6 @@ app.get('/user/userManage', function (req, res) {
                 result.totalSize = totalSize;
                 result.totalPage = totalPage;
                 res.json(result);
-                console.log(results[1]);
                 return;
             }
         });
@@ -224,6 +224,43 @@ app.get('/user/userManage', function (req, res) {
 
 });
 
+// 删除用户信息
+app.post('/user/delete', function (req, res) {
+    // 将用户传递过来的id保存起来
+    var id = req.body.id;
+    var result = {};
+    if (!id) {
+        // 如果没有传递或者是id值为空
+        result.code = -1;
+        result.msg = '操作失败';
+        res.json(result);
+        return;
+    }
+    // 如果传递了id值，那么就进行数据库操作
+    MongoClient.connect(url, { useNewUrlParser: true }, function (error, client) {
+        if (error) {
+            result.code = -1;
+            result.msg = '数据库连接失败'
+            res.json(result);
+            return;
+        }
+        var db = client.db('project');
+        db.collection('users').deleteOne({
+            _id: ObjectId(id)
+        }, function (error) {
+            if (error) {
+                result.code = -1;
+                result.msg = '删除信息失败';
+            } else {
+                result.code = 0;
+                result.msg = '删除信息成功';
+            }
+            res.json(result);
+            client.close();
+        });
+    });
+});
+
 // 404错误页面是要放在最后的，将文件读取出来发送给用户
 app.get('/404', function (req, res, next) {
     res.sendFile(path.join(__dirname, './404.html'));
@@ -232,6 +269,7 @@ app.get('/404', function (req, res, next) {
 // 重定向至404页面
 app.use(function (req, res, next) {
     res.redirect('/404');
-})
+});
+
 app.listen(3000);
 console.log('服务启动成功');
