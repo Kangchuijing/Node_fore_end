@@ -72,7 +72,7 @@
     <script id="users" type="text/html"> 
         <!-- 使用浏览器端的模板引擎渲染我们的html代码 -->
         {{each array}}
-        <tr>
+        <tr id="{{$value['_id']}}">
             <th scope="row">
                 <input type="checkbox">{{$index+1}}
             </th>
@@ -92,12 +92,12 @@
             <td>
                 <!-- 管理员用户可以修改自己的信息 -->
                 {{if($value.nickname == nickname)}} 
-                    <a href="/users/delete?id=">修改</a>
+                    <b href="/users/delete?id=">修改</b>
                 {{/if}}
                 <!-- 只能删除和修改非管理员的数据 -->
                {{if(!$value.isAdmin)}}
-                 <a href="/users/delete?id=">修改</a> 
-                 <a href="/users/delete?id={{$value['_id']}}" class='delete'>删除</a>
+                 <b class="update" up="{{$value['_id']}}">修改</b> 
+                 <b class='delete' del="{{$value['_id']}}">删除</b>
                {{/if}}  
             </td>
                          
@@ -161,6 +161,17 @@
                                     button.rendering(user, isUserLogin, head, res.data);
                                     button.prevPage(user, isUserLogin, head);
                                     button.nextPage(res.totalPage, user, isUserLogin, head);
+
+                                    // 当数据展示成功之后，进行下面的操作
+                                    var pro = new Promise(function () {   // 第二个promise，避免产生回调地狱
+                                        var person = new Person();
+                                        person.update = $(".update");
+                                        person.delete = $(".delete");
+                                        person.delete.click(function () {   // 当点击删除按钮时
+                                            person.deleteInfo($(this).attr('del'));   // 调用删除按钮的方法
+                                        });
+
+                                    })
                                 }
                             });
                         });
@@ -172,7 +183,12 @@
                 }, function () {    // 如果用户没有登录
                     alert('登录信息已过期，请重新登录');
                     location.href = 'http://127.0.0.1:8080/login.html';
-                })
+                }).then(function () {
+
+
+                }, function () {
+
+                });
 
             })();
 
@@ -282,23 +298,42 @@
 
                 // 获取数据
                 getData(user, isUserLogin, head, that) {
-                    $.get('http://localhost:3000/user/userManage',
-                        {
-                            page: $(that).text()
-                        }, function (res) {
+                    var pro = new Promise(function (success, failed) {
+                        $.get('http://localhost:3000/user/userManage',
+                            {
+                                page: $(that).text()
+                            }, function (res) {
 
-                            if (res.code == 0) {
-                                user.title[0].innerHTML = head;
-                                // 渲染我们的数据
-                                var html = template('users', {
-                                    array: res.data,
-                                    nickname: isUserLogin.nickname  // 传入用户的nickname，用来做数据的修改
-                                });
-                                // 将数据写入到DOM中
-                                user.user_list[0].innerHTML = html;
+                                if (res.code == 0) {
+                                    success(res);
+                                } else {
+                                    failed();
+                                }
                             }
-                        }
-                    );
+                        );
+                    });
+
+                    pro.then(function (res) {
+                        user.title[0].innerHTML = head;
+                        // 渲染我们的数据
+                        var html = template('users', {
+                            array: res.data,
+                            nickname: isUserLogin.nickname  // 传入用户的nickname，用来做数据的修改
+                        });
+                        // 将数据写入到DOM中
+                        user.user_list[0].innerHTML = html;
+
+                        var pro = new Promise(function (success, failed) {
+                            var person = new Person();
+                            person.update = $(".update");
+                            person.delete = $(".delete");
+                            person.delete.click(function () {   // 当点击删除按钮时
+                                person.deleteInfo($(this).attr('del'));   // 调用删除按钮的方法
+                            });
+                        });
+                    }, function () {
+
+                    });
                 }
 
                 // 渲染页面
@@ -316,6 +351,23 @@
 
             }
 
+            // 用户信息操作
+            class Person {
+                constructor() {
+                    this.update = null;     // 获取修改按钮
+                    this.delete = null;     // 获取删除按钮
+                }
+                deleteInfo(eleId) {
+                    $.post('http://localhost:3000/user/delete', {
+                        id: eleId
+                    }, function (res) {
+                        alert(res.msg);
+                        if (res.code == 0) {  // 如果后台返回的信息表明数据已经删除，此时将页面上的DOM元素也移除
+                            $("#" + eleId).remove();
+                        }
+                    });
+                }
+            }
 
         });
     </script>
