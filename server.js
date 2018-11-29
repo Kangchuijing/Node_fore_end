@@ -20,6 +20,8 @@ app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 
 // 下面将是后台提供给前端的一些接口
+
+// 用户登录接口
 app.post('/user/login', function (req, res, next) {
     // 接受前端传递过来的用户名和密码
     var user = req.body.user;
@@ -64,6 +66,92 @@ app.post('/user/login', function (req, res, next) {
     });
 });
 
+// 用户注册接口
+app.post('/user/regesit', function (req, res, next) {
+    var user = req.body.user;
+    var nickname = req.body.nickname;
+    var password = req.body.password;
+    var sex = req.body.sex;
+    var isAdmin = req.body.isAdmin;
+    var power = req.body.power
+    console.log(sex);
+    var checkComplete = {};   // 服务端返回给前端的处理信息
+    // 开始服务端的二次验证
+    (
+        function () {
+            // 校验数据的完整型
+            for (var key in req.body) {
+                if (!req.body[key]) {
+                    checkComplete.code = -1;
+                    checkComplete.msg = '请提交完整的表单数据';
+                    res.json(checkComplete);            // 如果验证不通过，直接将数据返回至前端
+                    return;
+                }
+            }
+
+            // 如果数据是完整的，那么就进行下一步操作
+            // 连接数据库
+            MongoClient.connect(url, { useNewUrlParser: true }, function (error, client) {
+                // 如果数据库连接失败
+                if (error) {
+                    console.log('数据库连接失败');
+                    checkComplete.code = -1;
+                    checkComplete.msg = 'error，请重新尝试';
+                    res.json(checkComplete);
+                    return;
+                }
+                // 如果连接成功，则进行下面的数据库查询操作
+                var db = client.db('project');
+                // 采用异步流程控制，注册用户首先判断用户名是否存在，存在则不允许再注册，不存在才能注册
+                async.series([function (cb) {  // 判断用户名是否存在
+                    db.collection('users').find({
+                        name: user
+                    }).toArray(function (error, data) {
+                        if (error) {
+
+                            cb('数据查询失败');
+                        } else if (data.length >= 1) {   // 如果数据库中已经注册了这个用户名
+                            cb('用户名已存在');
+                        } else {        // 如果用户名未注册，才允许进入下面的操作
+                            cb(null);
+                        }
+                    });
+                }, function (cb) {    // 将用户输入的信息插入至数据库中
+                    db.collection('users').insertOne({
+                        name: user,
+                        nickname: nickname,
+                        password: password,
+                        sex: sex,
+                        isAdmin: isAdmin,
+                        power: power
+                    }, function (error) {
+                        if (error) {
+                            cb('数据插入失败');
+                        } else {
+                            cb(null);
+                        }
+                    });
+                }], function (error, result) {
+                    if (error) {
+                        checkComplete.code = -1;
+                        checkComplete.msg = error;
+                    } else {
+                        checkComplete.code = 0;
+                        checkComplete.msg = '注册成功';
+                    }
+                    // 注意：这个返回的数据一定是在这里面写，不能放到外面！！！
+                    // 将信息返回前端
+                    res.json(checkComplete);
+                    // 关闭与数据库的连接
+                    client.close();
+                });
+
+            });
+
+        }
+    )();
+
+});
 
 // 展示用户管理界面
 app.get('/user/userManage', function (req, res) {
@@ -108,11 +196,17 @@ app.get('/user/userManage', function (req, res) {
 
     })
 
-    // 404错误页面是要放在最后的
-    app.use(function (req, res, next) {
-        res.send('404');
-    });
+
 });
 
+// 404错误页面是要放在最后的，将文件读取出来发送给用户
+app.get('/404', function (req, res, next) {
+    res.sendFile(path.join(__dirname, './404.html'));
+});
+
+// 重定向至404页面
+app.use(function (req, res, next) {
+    res.redirect('/404');
+})
 app.listen(3000);
 console.log('服务启动成功');
