@@ -370,11 +370,15 @@
                                     var phone = new Phone();
                                     // 当用户点击删除按钮时
                                     var $delete = $(".delete");
-
+                                    var $update = $(".update");
                                     $("#list").on('click', '.delete', function () {
                                         console.log(111);
                                         phone.delete = $(this);
                                         phone.deletePhone($(this).attr('delete'));
+                                    });
+                                    $("#list").on('click', '.update', function () {
+                                        phone.update = $(this);
+                                        phone.updatePhone($(this).attr('update'));
                                     });
                                     success(res);
                                 } else {
@@ -639,6 +643,47 @@
                         } else {
                             alert(res.code);
                         }
+                    })
+                }
+                updatePhone(id) {
+                    $.get('http://localhost:3000/phoneManager/phoneInfo', {
+                        pid: id
+                    }, function (res) {
+                        console.log(res);
+                        // 获取用于数据更新的DOM盒子
+                        var $update = $("#update");
+                        var $data_form = $("#data_form");
+                        $update.fadeIn(200);  // 显示修改信息页面
+                        var html = `   
+                           <h4>修改</h4>
+                          <form action="http://localhost:3000/phoneManager/update" method="post" enctype="multipart/form-data">
+                            <input type="hidden" name="id" value="${id}">
+                            名称<input type="text" id="phoneName" name="phoneName"> <br />
+                            品牌<input type="text" id="phoneBrand" name="brand"><br />
+                             官方指导价<input type="text" id="guidancePrice" name="guidancePrice"><br />
+                             二手回收价<input type="text" id="recoveryPrice" name="recoveryPrice"><br />
+                            图片<input type="file" id="picture" name="picture"><img src=""  id="phoneImg"/><br /> 
+                            <input type="submit" id="phoneUpdate" value="提交">
+                           </form>
+                        `;
+                        $data_form[0].innerHTML = html;
+
+                        var $phoneName = $("#phoneName");
+                        var $brand = $("#phoneBrand");
+                        var $guidancePrice = $("#guidancePrice");
+                        var $recoveryPrice = $("#recoveryPrice");
+                        var $picture = $("#picture");
+                        var $phoneImg = $("#phoneImg");
+                        var $phoneUpdate = $("#phoneUpdate");
+                        $phoneImg.css('width', '50');
+                        console.log($phoneName, res.data[0].phoneName, $brand, res.data[0].brand);
+
+                        $phoneName.val(res.data[0].phoneName);
+                        $brand.val(res.data[0].brand);
+                        $guidancePrice.val(res.data[0].guidancePrice);
+                        $recoveryPrice.val(res.data[0].recoveryPrice);
+                        $phoneImg.attr('src', res.data[0].picture);
+
                     })
                 }
             }

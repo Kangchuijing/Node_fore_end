@@ -146,7 +146,7 @@ html,body{
     margin-bottom: 0;
 }
 
-/* 用来做用户信息修改的弹出框 */
+/* 用来做信息修改的弹出框 */
 #update{
     position: fixed;
     top: 0;
