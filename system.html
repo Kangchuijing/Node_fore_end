@@ -37,13 +37,13 @@
                     <li role="presentation " id="pinpai">
                         <a class="cursor">品牌管理</a>
                     </li>
-                    <li role="presentation ">
+                    <li role="presentation " id="phone">
                         <a class="cursor">手机管理</a>
                     </li>
                 </ul>
             </div>
             <div id="data">
-                <div class="form">
+                <div class="form" id="userSearch">
                     <form class="form-inline">
                         <div class="form-group">
                             <label class="sr-only" for="searchInput">Amount (in dollars)</label>
@@ -55,6 +55,29 @@
                         </div>
                         <button type="button" id="search" class="btn btn-primary">查询</button>
                     </form>
+                </div>
+                <div id="addItem">
+                    <button>添加</button>
+                    <div id="addPhone">
+                        <div class="phoneForm">
+                            <form action="http://localhost:3000/addPhone" enctype="multipart/form-data" method="POST">
+                                <h4>新增</h4>
+                                名称<input type="text" name="phoneName" placeholder="请输入手机名称"><br>
+                                品牌<select name="brand" id="brand">
+                                    <option value="苹果">苹果</option>
+                                    <option value="小米">小米</option>
+                                    <option value="三星">三星</option>
+                                    <option value="黑莓">黑莓</option>
+                                    <option value="google">google</option>
+                                </select>
+                                <br>
+                                官方指导价<input type="text" name="guidancePrice" placeholder="请输入官方价格"><br>
+                                二手回收价<input type="text" name="recoveryPrice" placeholder="请输入二手回收价格"><br>
+                                手机图片<input type="file" name="picture" accept="image/*"><br>
+                                <button type="submit">提交数据</button>
+                            </form>
+                        </div>
+                    </div>
                 </div>
                 <div class="table">
                     <table class="table table-hover">
@@ -146,6 +169,18 @@
         </tr>
          {{/each}}
     </script>
+    <script id="phoneManage" type="text/html">
+        {{each array}}
+            <tr id="{{$value['_id']}}">
+                   <td><img src="{{$value.picture}}" alt=""></td>
+                   <td>{{$value.phoneName}}</td>
+                   <td>{{$value.brand}}</td>
+                   <td>{{$value.guidancePrice}}</td>
+                   <td>{{$value.recoveryPrice}}</td>
+                   <td><b class="update" update="{{$value['_id']}}">修改</b> <b class="delete" delete="{{$value['_id']}}">删除</b></td>
+            </tr>
+        {{/each}}           
+    </script>
     <script>
         $(function () {
             // 自调用函数，判断用户是否登录以及显示用户信息在页面上,以及搜索功能
@@ -156,16 +191,19 @@
                     userInfo: null,         // 显示用户信息
                     title: null,            // 表头
                     user_list: null,        // 用户列表
+                    userSearch: null,       // 用户信息搜索
                     init: function () {    // 初始化用户信息对象
                         this.usersManager = $("#usersManager");
                         this.userInfo = $("#userInfo");
                         this.title = $("#title");
                         this.user_list = $("#list");
+                        this.userSearch = $("#userSearch");
                     }
                 };
 
                 user.init();    // 初始化获取jq对象
 
+                // 用户管理
                 // 发现一个问题，可能会形成回调地狱，我们将这些ajax操作放到promise中去执行
                 var pro = new Promise(function (success, fail) {
                     if (isUserLogin) {   // 用来判断用户是否登录，如果登录了，那么就可以进行下面的操作
@@ -180,6 +218,8 @@
 
                         // 当点击用户管理的时候，又发送一次ajax请求
                         user.usersManager.click(function () {
+                            user.userSearch.css('display', 'block');
+                            $("#addItem").css('display', 'none');
                             $.get('http://localhost:3000/user/userManage', function (res) {
                                 alert(res.msg);
                                 // 如果响应码为0，表明数据成功查找，此时将数据渲染至页面
@@ -198,6 +238,7 @@
                                    </tr>
                                     `;
                                     var button = new Button();
+                                    button.url = 'http://localhost:3000/user/userManage';
                                     button.buildButton(res.totalPage);
                                     button.pageEvent(user, isUserLogin, head, res.data);
                                     button.rendering(user, isUserLogin, head, res.data);
@@ -229,6 +270,7 @@
                     alert('登录信息已过期，请重新登录');
                     location.href = 'http://127.0.0.1:8080/login.html';
                 });
+
 
                 // 搜索功能
                 (function () {
@@ -267,6 +309,90 @@
                     });
                 })();
 
+                // 手机管理
+                var phone = new Promise(function (success, failed) {
+                    if (isUserLogin) {   // 用来判断用户是否登录，如果登录了，那么就可以进行下面的操作
+                        success();      // 用户已登录
+                    } else {
+                        error();        // 用户未登录
+                    }
+                });
+                phone.then(function () {
+                    var $phone = $("#phone");
+                    var $addItem = $("#addItem");
+                    var $addPhone = $("#addPhone");
+                    $phone.click(function () {
+                        user.userSearch.css('display', 'none');
+                        $addItem.css('display', 'block').find('button').text('添加手机');
+                        $addItem.click(function () {
+                            $addPhone.css('display', 'block');
+                        });
+                        var pro = new Promise(function (success, failed) {
+                            $.get('http://localhost:3000/phoneManager', function (res) {
+                                alert(res.msg);
+
+                                if (res.code == 0) {
+                                    // 查找手机信息成功
+                                    var head = `
+                                <tr class="bg-info">
+                                        <th>
+                                             图片
+                                        </th>
+                                          <th>手机名称</th>
+                                          <th>所属品牌</th>
+                                          <th>官方指导价</th>
+                                          <th>二手回收价</th>
+                                          <th>操作</th>
+                                </tr>
+                                `;
+                                    user.title[0].innerHTML = head;
+                                    var html = template('phoneManage', {
+                                        array: res.data
+                                    });
+                                    console.log(res);
+                                    user.user_list[0].innerHTML = html;
+
+                                    // 实例一个按钮对象
+                                    var button = new phoneOperate();
+                                    // 点击按钮请求的地址
+                                    button.url = 'http://localhost:3000/phoneManager';
+                                    // 生成按钮的个数
+                                    button.buildButton(res.totalPage);
+                                    // 上一页
+                                    button.prevPage(user, isUserLogin, head);
+                                    // 页数的点击事件
+                                    button.pageEvent(user, isUserLogin, head);
+                                    // 下一页
+                                    button.nextPage(res.totalPage, user, isUserLogin, head);
+
+                                    // 当列表成功显示
+                                    // 实例一个手机对象
+                                    var phone = new Phone();
+                                    // 当用户点击删除按钮时
+                                    var $delete = $(".delete");
+
+                                    $("#list").on('click', '.delete', function () {
+                                        console.log(111);
+                                        phone.delete = $(this);
+                                        phone.deletePhone($(this).attr('delete'));
+                                    });
+                                    success(res);
+                                } else {
+                                    failed();
+                                }
+                            });
+                        });
+
+                    });
+                }, function () {
+                    alert('请登录');
+                    location.href = 'http://127.0.0.1:8080/login.html';
+                }).then(function (res) {
+
+
+                }, function () {
+
+                });
             })();
 
             // 点击退出登录
@@ -322,7 +448,7 @@
                         // 将当前的按钮设置为高亮
                         _this.activeButton(_this.currentButton);
                         // 同时发送ajax请求从后台更新数据
-                        _this.getData(user, isUserLogin, head, _this.currentButton)
+                        _this.getData(_this.url, user, isUserLogin, head, _this.currentButton)
                     })
                 }
 
@@ -335,7 +461,7 @@
                         var that = this;
                         // 将当前点击的按钮激活为活动按钮
                         _this.activeButton($(this));
-                        _this.getData(user, isUserLogin, head, that);
+                        _this.getData(_this.url, user, isUserLogin, head, that);
                     })
                 }
 
@@ -351,7 +477,7 @@
                         // 将当前操作的对象置为活动对象
                         _this.activeButton(_this.currentButton);
                         // 同时从后台获取更新数据
-                        _this.getData(user, isUserLogin, head, _this.currentButton)
+                        _this.getData(_this.url, user, isUserLogin, head, _this.currentButton)
                     });
                 }
 
@@ -375,9 +501,9 @@
                 }
 
                 // 获取数据
-                getData(user, isUserLogin, head, that) {
+                getData(url, user, isUserLogin, head, that) {
                     var pro = new Promise(function (success, failed) {
-                        $.get('http://localhost:3000/user/userManage',
+                        $.get(url,
                             {
                                 page: $(that).text()
                             }, function (res) {
@@ -497,6 +623,64 @@
                 }
             }
 
+            // 手机添加删除
+
+            class Phone {
+                constructor() {
+                    this.delete = null;
+                    this.update = null;
+                }
+                deletePhone(id) {
+                    $.get('http://localhost:3000/phoneManager/delete', {
+                        pid: id
+                    }, function (res) {
+                        if (res.code == 0) {
+                            $("#" + id).remove();
+                        } else {
+                            alert(res.code);
+                        }
+                    })
+                }
+            }
+
+            // 手机操作继承按钮操作，重写按钮的获取数据方法
+            class phoneOperate extends Button {
+                constructor() {
+                    super();
+                }
+                getData(url, user, isUserLogin, head, that) {
+                    var pro = new Promise(function (success, failed) {
+                        $.get(url,
+                            {
+                                page: $(that).text()
+                            }, function (res) {
+
+                                if (res.code == 0) {
+                                    success(res);
+                                } else {
+                                    failed();
+                                }
+                            }
+                        );
+                    });
+
+                    pro.then(function (res) {
+                        console.log(111);
+                        user.title[0].innerHTML = head;
+                        // 渲染我们的数据
+                        var html = template('phoneManage', {
+                            array: res.data
+                        });
+                        // 将数据写入到DOM中
+                        user.user_list[0].innerHTML = html;
+
+
+                    }, function () {
+
+                    });
+
+                }
+            }
         });
     </script>
 </body>
