@@ -314,7 +314,7 @@ app.post('/user/update', function (req, res, next) {
                                 isAdmin: req.body.isAdmin,
                                 power: req.body.power
                             }
-                        }, function (error) {
+                        }, { safe: true }, function (error) {
                             if (error) {
                                 console.log('数据更新失败1');
                                 cb('数据更新失败');
@@ -618,7 +618,108 @@ app.get('/phoneManager/delete', function (req, res, next) {
             client.close();
         })
     });
+});
+
+// 点击修改按钮时获取手机信息
+app.get('/phoneManager/phoneInfo', function (req, res, next) {
     console.log(req.query);
+    var result = {}; // 返回给前端的信息
+    if (!req.query.pid) {     // 如果这个没有传递过来
+        result.code = -1;
+        result.msg = '操作失败';
+        res.json(result);
+        return;
+    }
+    // 连接数据库
+    MongoClient.connect(url, { useNewUrlParser: true }, function (error, client) {
+        if (error) {    // 如果数据库连接失败
+            result.code = -1;
+            result.msg = '数据库操作失败';
+            res.json(result);
+            return;
+        }
+        // 如果数据库连接成功
+        var db = client.db('project');
+        db.collection('phone').find({
+            _id: ObjectId(req.query.pid)
+        }).toArray(function (error, data) {
+            if (error) {
+                result.code = -1;
+                result.msg = '操作失败';
+            } else if (data.length <= 0) {
+                result.code = -1;
+                result.msg = '操作失败';
+            } else {
+                result.code = 0;
+                result.msg = '成功';
+                result.data = data;
+            }
+            // 将数据返回给前端
+            res.json(result);
+            client.close();
+        });
+    });
+})
+// 修改手机信息
+app.post('/phoneManager/update', upload.single('picture'), function (req, res, next) {
+    var result = {};    // 返回给前端的信息
+    var allInfo = ['id', 'phoneName', 'brand', 'guidancePrice', 'recoveryPrice'];
+    for (var key in req.body) {
+        if (allInfo.indexOf(key) == -1) {
+            result.code = -1;
+            result.msg = '请提交完整的数据';
+            res.json(result);
+            return;
+        }
+    }
+    // 如果数据是完整的
+    MongoClient.connect(url, { useNewUrlParser: true }, function (error, client) {
+        if (error) {
+            result.code = -1;
+            result.msg = '数据库连接失败';
+            res.json(result);
+            return;
+        }
+        // 如果数据库连接成功
+        var db = client.db('project');
+        // 首先要进行的是将临时文件移动到网站可以操作的范围
+        var imgPath = '/public/images/' + new Date().getTime() + '-' + req.file.originalname;
+        var filePath = path.join(__dirname, '../fore', imgPath);
+        try {
+            fs.renameSync(req.file.path, filePath);
+        } catch (error) {
+            result.code = -1;
+            result.msg = '文件上传失败';
+            console.log('文件上传失败', error, filePath);
+            res.json(result);
+            return;
+        }
+        db.collection('phone').updateOne({
+            _id: ObjectId(req.body.id)
+        }, {
+                $set: {
+                    phoneName: req.body.phoneName,
+                    brand: req.body.brand,
+                    guidancePrice: req.body.guidancePrice,
+                    recoveryPrice: req.body.recoveryPrice,
+                    picture: imgPath
+                }
+            }, { safe: true }, function (error) {
+                if (error) {
+                    console.log("数据修改失败");
+                    result.code = -1;
+                    result.msg = '数据修改失败';
+                } else {
+                    console.log("数据修改成功");
+                    result.code = 0;
+                    result.msg = '数据修改成功';
+                }
+                // 将数据响应给前端
+                res.json(result);
+                client.close();
+            });
+    });
+
 });
 
 // 404错误页面是要放在最后的，将文件读取出来发送给用户
