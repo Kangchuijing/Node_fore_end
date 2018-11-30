@@ -3,10 +3,12 @@ var app = express();
 var bodyParser = require('body-parser');
 var path = require('path');
 var async = require('async');
+var multer = require('multer');
+var fs = require('fs');
 var MongoClient = require('mongodb').MongoClient;
 var ObjectId = require('mongodb').ObjectId;
 var url = 'mongodb://127.0.0.1:27017';   // 后台数据库地址
-
+var upload = multer({ dest: 'c/tmp' });
 // 中间件 允许跨域访问
 app.use(function (req, res, next) {
     res.set('Access-Control-Allow-Origin', '*');
@@ -14,7 +16,7 @@ app.use(function (req, res, next) {
 });
 
 // 静态文件托管中间件
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'files')));
 
 // 获取请求体中数据中间件
 app.use(bodyParser.urlencoded({ extended: false }));
@@ -453,6 +455,170 @@ app.get('/user/search', function (req, res, next) {
             client.close();
         });
     });
+});
+
+// 手机管理
+app.get('/phoneManager', function (req, res, next) {
+    var page = parseInt(req.query.page) || 1;
+    var pageSize = parseInt(req.query.pageSize) || 5;
+    var totalSize = 0;
+    var result = {};   // 返回给前端的数据
+    MongoClient.connect(url, { useNewUrlParser: true }, function (error, client) {
+        if (error) {
+            result.code = -1;
+            result.msg = '数据库连接失败';
+            res.json(result);
+            return;
+        }
+        var db = client.db('project');
+        // 异步流程控制
+        // 1、查找数据的总量，计算出页数
+        async.series([
+            function (cb) {
+                db.collection('phone').find().count(function (error, num) {
+                    if (error) {
+                        console.log('数据操作失败');
+                        cb('数据操作失败');
+                    } else {
+                        console.log('数据操作成功');
+                        totalSize = num;
+                        cb(null);
+                    }
+                });
+            }, function (cb) {
+                db.collection('phone').find().limit(pageSize).skip(pageSize * (page - 1)).toArray(function (error, data) {
+                    if (error) {        // 如果操作失败
+                        result.code = -1;
+                        result.msg = '数据查找失败';
+                        cb('数据查找失败');
+                    } else if (data.length <= 0) {  // 如果数据库中没有数据
+                        result.code = -1;
+                        result.msg = '没有更多数据，请尝试添加手机信息';
+                        cb('没有更多数据，请尝试添加手机信息');
+                    } else {    // 查找到了数据
+                        result.code = 0;
+                        result.msg = '查找成功';
+                        result.data = data;
+                        cb(null);
+                    }
+
+                });
+            }
+        ], function (error, results) {
+            if (error) {
+                console.log('数据操作失败');
+            } else {
+                console.log('数据操作成功');
+            }
+            // 计算总的页数
+            var totalPage = Math.ceil(totalSize / pageSize);
+            result.totalPage = totalPage;
+            result.page = page;
+            // 将数据返回给前端
+            res.json(result);
+            client.close();
+        });
+
+    });
+});
+
+// 添加手机
+app.post('/addPhone', upload.single('picture'), function (req, res, next) {
+    var need = ['phoneName', 'brand', 'guidancePrice', 'recoveryPrice'];  // 验证表单数据的完整性
+    var result = {};    // 返回给前端的信息
+    for (var key in req.body) {
+        if (need.indexOf(key) == -1) {
+            result.code = -1;
+            result.msg = '请将表单信息填写完整';
+            res.json(result);
+            return;
+        }
+    }
+    // 如果数据信息完整
+    MongoClient.connect(url, { useNewUrlParser: true }, function (error, client) {
+        if (error) {   // 如果数据库连接失败
+            result.code = -1;
+            result.msg = '数据库连接失败';
+            res.json(result);
+            return;
+        }
+        // 首先要进行的是将临时文件移动到网站可以操作的范围
+        var imgPath = '/public/images/' + new Date().getTime() + '-' + req.file.originalname;
+        var filePath = path.join(__dirname, '../fore', imgPath);
+        try {
+            fs.renameSync(req.file.path, filePath);
+        } catch (error) {
+            result.code = -1;
+            result.msg = '文件上传失败';
+            console.log('文件上传失败', error, filePath);
+            res.json(result);
+            return;
+        }
+
+        //  连接成功才会进行下一步操作
+        var db = client.db('project');
+        // 将信息插入数据库中
+        db.collection('phone').insertOne({      // 操作数据库，将数据添加进入数据库
+            phoneName: req.body.phoneName,
+            brand: req.body.brand,
+            guidancePrice: req.body.guidancePrice,
+            recoveryPrice: req.body.recoveryPrice,
+            picture: imgPath
+        }, function (error) {   // 如果操作数据库失败
+            if (error) {
+                console.log('数据库操作失败');
+                result.code = -1;
+                result.msg = '数据操作失败';
+            } else {    // 如果数据添加成功
+                console.log('添加成功');
+                result.code = 0;
+                result.msg = '数据添加成功';
+            }
+            console.log(req.body, req.file);
+            // 当数据添加成功，重定向至管理系统界面
+            res.redirect('http://127.0.0.1:8080/system.html');
+            // 关闭数据库的连接
+            client.close();
+        })
+    });
+
+});
+
+// 删除手机
+app.get('/phoneManager/delete', function (req, res, next) {
+    var result = {};        // 返回给前端的信息
+    if (!req.query.pid) {
+        result.code = -1;
+        result.msg = '操作失败';
+        res.json(result);
+        return;
+    }
+    // 信息是完整的
+    MongoClient.connect(url, { useNewUrlParser: true }, function (error, client) {
+        if (error) {    // 如果数据库连接失败
+            result.code = -1;
+            result.msg = '数据库连接失败';
+            res.json(result);
+            return;
+        }
+        // 如果数据库连接成功
+        var db = client.db('project');
+        db.collection('phone').deleteOne({
+            _id: ObjectId(req.query.pid)
+        }, function (error) {
+            if (error) {
+                result.code = -1;
+                result.msg = '数据库操作失败'
+            } else {
+                result.code = 0;
+                result.msg = '信息删除成功';
+            }
+            // 将信息返回给前端
+            res.json(result);
+            client.close();
+        })
+    });
+    console.log(req.query);
 });
 
 // 404错误页面是要放在最后的，将文件读取出来发送给用户
