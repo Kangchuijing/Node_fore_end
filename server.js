@@ -296,14 +296,14 @@ app.post('/user/update', function (req, res, next) {
                     if (error) {
                         cb('操作失败');
                     } else if (data.length >= 1) {   // 说明数据库中已经有这个用户名，那么将不会更新这个用户名
-                        cb(null, true);
+                        cb(null, "no");
                     } else {        // 如果用户更改的用户名数据库中没有，那么允许用户进行更改
-                        cb(null, false);
+                        cb(null, "yes");
 
                     }
                 });
             }, function (flag, cb) {
-                if (flag) {   // 如果用户名在数据库中已经存在，那么只会更新其他数据
+                if (flag == "yes") {   // 如果用户名在数据库中已经存在，那么只会更新其他数据
                     db.collection('users').updateOne({
                         _id: ObjectId(req.body['_id'])
                     }, {
@@ -319,7 +319,6 @@ app.post('/user/update', function (req, res, next) {
                                 console.log('数据更新失败1');
                                 cb('数据更新失败');
                             } else {
-                                console.log('数据更新成功1');
                                 cb(null);
                             }
                         });
@@ -338,13 +337,12 @@ app.post('/user/update', function (req, res, next) {
                                 power: req.body.power
                             }
 
-                        }, function (error) {
+                        }, { safe: true }, function (error) {
 
                             if (error) {
                                 console.log('数据更新失败2', error);
                                 cb('数据更新失败');
                             } else {
-                                console.log('数据更新成功2');
                                 cb(null);
                             }
                         });
@@ -353,11 +351,13 @@ app.post('/user/update', function (req, res, next) {
 
         ], function (error, results) {
             if (error) {   // 异步操作中出现错误
+                console.log('数据更新失败');
                 result.code = -1;
                 result.msg = error;
             } else {
                 result.code = 0;
                 result.msg = '数据更新成功';
+                console.log('数据更新成功');
             }
             // 将数据响应至前端
             res.json(result);
@@ -681,6 +681,7 @@ app.post('/phoneManager/update', upload.single('picture'), function (req, res, n
             return;
         }
         // 如果数据库连接成功
+        console.log(req.file);
         var db = client.db('project');
         // 首先要进行的是将临时文件移动到网站可以操作的范围
         var imgPath = '/public/images/' + new Date().getTime() + '-' + req.file.originalname;
@@ -714,12 +715,226 @@ app.post('/phoneManager/update', upload.single('picture'), function (req, res, n
                     result.code = 0;
                     result.msg = '数据修改成功';
                 }
-                // 将数据响应给前端
-                res.json(result);
+                // 重定向回去
+                res.redirect('http://127.0.0.1:8080/system.html');
                 client.close();
             });
     });
 
+});
+
+// 获取品牌信息
+app.get('/brandManager', function (req, res, next) {
+    // 分页操作所需要的一些变量
+    var page = parseInt(req.query.page) || 1;
+    var pageSize = parseInt(req.query.pageSize) || 5;
+    var totalSize = 0;
+    var result = {};   // 返回给前端的信息
+    // 连接数据库
+    MongoClient.connect(url, { useNewUrlParser: true }, function (error, client) {
+        if (error) {
+            result.code = -1;
+            result.msg = '数据库连接失败';
+            res.json(result);
+            return;
+        }
+        // 如果连接成功，就对数据库进行操作
+        var db = client.db('project');
+
+        // 异步流程控制
+        // 1、分页查询首先获取数据的条数
+        async.series([function (cb) {
+            db.collection('brand').find().count(function (error, num) {
+                if (error) {
+                    console.log('数据库连接失败');
+                    cb('数据操作失败');
+                } else {
+                    console.log('数据操作成功');
+                    totalSize = num;
+                    cb(null);
+                }
+            });
+        }, function (cb) {
+            db.collection('brand').find().limit(pageSize).skip(pageSize * (page - 1)).toArray(function (error, data) {
+                if (error) {
+                    console.log('数据库操作失败');
+                    cb('数据库操作失败');
+                } else {
+                    console.log('操作成功');
+                    cb(null, data);
+                }
+            })
+        }], function (error, results) {
+            if (error) {
+                result.msg = error;
+                result.code = -1;
+            } else {
+                result.msg = '操作成功';
+                result.code = 0;
+                result.data = results[1];
+            }
+            // 将数据响应给前端，关闭数据库
+            res.json(result);
+            client.close();
+        });
+
+    });
+});
+
+// 添加品牌信息
+app.post('/addBrand', upload.single('picture'), function (req, res, next) {
+    console.log(req.body);
+    console.log(req.file);
+    var result = {};   // 返回给前端的信息
+    if (!req.body.brandName) {  // 对用户传递的数据进行校验
+        result.code = -1;
+        result.msg = '请必须填写品牌名';
+        res.json(result);
+        return;
+    }
+    // 如果通过了校验，那么就进行数据库操作
+    MongoClient.connect(url, { useNewUrlParser: true }, function (error, client) {
+        if (error) {    // 如果数据库操作出现问题
+            console.log('数据库操作失败');
+            result.code = -1;
+            result.msg = '数据库操作失败';
+            res.json(result);
+            return;
+        }
+        // 将文件从临时目录移动到网站目录下
+        var filePath = '/public/images/' + new Date().getTime() + '-' + req.file.originalname;
+        var targetPath = path.join(__dirname, '../fore', filePath);
+        try {
+            fs.renameSync(req.file.path, targetPath);
+        } catch (error) {
+            console.log(error);
+            result.code = -1;
+            result.msg = '文件长传失败';
+            res.json(result);
+            return;
+        }
+
+        // 数据库连接无问题
+        // 接下来将数据插入数据库
+        var db = client.db('project');
+        db.collection('brand').insertOne({
+            logo: filePath,
+            brandName: req.body.brandName
+        }, function (error) {
+            if (error) {
+                console.log('数据库操作失败');
+                result.code = -1;
+                result.msg = '数据库操作失败';
+            } else {
+                result.code = 1;
+                result.msg = '插入成功';
+            }
+            // 将数据返回至前端
+            res.json(result);
+            client.close();
+        });
+    });
+
+});
+
+// 删除品牌信息
+app.post('/brandManager/delete', function (req, res, next) {
+    var result = {};    // 返回给前端的数据
+    if (!req.body.id) {
+        console.log('操作失误');
+        result.code = -1;
+        result.msg = '操作有误';
+        res.json(result);
+        return;
+    }
+    // 如果操作正常
+    MongoClient.connect(url, { useNewUrlParser: true }, function (error, client) {
+        if (error) {    // 如果数据库连接失败
+            console.log('数据库连接失败');
+            result.code = -1;
+            result.msg = '数据库连接失败';
+            res.json(result);
+            return;
+        }
+        // 如果数据库正常连接
+        // 对数据库进行操作
+        var db = client.db('project');
+        db.collection('brand').deleteOne({
+            _id: ObjectId(req.body.id)
+        }, function (error) {
+            if (error) {
+                console.log("数据库操作失败");
+                result.code = -1;
+                result.msg = '数据库操作失败';
+            } else {
+                console.log("删除成功");
+                result.code = 0;
+                result.msg = '删除成功'
+            }
+            // 将数据响应给前端
+            res.json(result);
+            client.close();
+        });
+    });
+});
+
+// 修改品牌信息
+app.post('/brandManager/update', upload.single('logo'), function (req, res, next) {
+    console.log(req.body);
+    var result = {};  // 返回给前端的数据
+    if (!req.body.id) {   // 如果没有传递id值
+        result.code = -1;
+        result.msg = '非法操作1';
+        res.json(result);
+        return;
+    }
+
+    // 如果传递了信息
+    MongoClient.connect(url, { useNewUrlParser: true }, function (error, client) {
+        if (error) {
+            console.log('操作数据库失败');
+            result.code = -1;
+            result.msg = '数据库连接失败';
+            res.json(result);
+            return;
+        }
+
+        // 首先要进行的是将临时文件移动到网站可以操作的范围
+        var imgPath = '/public/images/' + new Date().getTime() + '-' + req.file.originalname;
+        var filePath = path.join(__dirname, '../fore', imgPath);
+        try {
+            fs.renameSync(req.file.path, filePath);
+        } catch (error) {
+            result.code = -1;
+            result.msg = '文件上传失败';
+            console.log('文件上传失败', error, filePath);
+            res.json(result);
+            return;
+        }
+        // 进行数据的修改
+        var db = client.db('project');
+        db.collection('brand').updateOne({
+            _id: ObjectId(req.body.id),
+        }, {
+                $set: {
+                    logo: imgPath,
+                    brandName: req.body.brandName
+                }
+            }, { safe: true }, function (error) {
+                if (error) {
+                    result.code = -1;
+                    result.msg = '操作失败';
+                    console.log('数据库操作失败');
+                } else {
+                    console.log('修改成功');
+                    result.code = 0;
+                    result.msg = '修改成功'
+                }
+                // 将数据返回给前端
+                res.json(result);
+                client.close();
+            });
+    });
 });
 
 // 404错误页面是要放在最后的，将文件读取出来发送给用户
