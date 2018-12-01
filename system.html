@@ -69,6 +69,13 @@
                                     <option value="三星">三星</option>
                                     <option value="黑莓">黑莓</option>
                                     <option value="google">google</option>
+                                    <option value="华为">华为</option>
+                                    <option value="oppo">oppo</option>
+                                    <option value="vivo">vivo</option>
+                                    <option value="努比亚">努比亚</option>
+                                    <option value="锤子">锤子</option>
+                                    <option value="HTC">HTC</option>
+                                    <option value="中兴">中兴</option>
                                 </select>
                                 <br>
                                 官方指导价<input type="text" name="guidancePrice" placeholder="请输入官方价格"><br>
@@ -132,7 +139,7 @@
         </div>
         <div class="footer ">我是尾部</div>
     </div>
-    <script src="./public/js/jquery-1.12.4.min.js"></script>
+    <script src="./public/js/jquery-3.0.0.min.js"></script>
     <script src="./public/js/cookie.js"></script>
     <script src="./public/js/template-web.js"></script>
     <script id="users" type="text/html">
@@ -181,242 +188,17 @@
             </tr>
         {{/each}}           
     </script>
+    <script id="brandHTML" type="text/html">
+        {{each array}}
+            <tr>
+                <td><img src="{{$value.logo}}" alt=""></td>
+                <td>{{$value.brandName}}</td>
+                <td><b class="update" update="{{$value['_id']}}">修改</b>  <b class="delete" delete="{{$value['_id']}}">删除</b></td>
+            </tr>
+         {{/each}}   
+    </script>
     <script>
         $(function () {
-            // 自调用函数，判断用户是否登录以及显示用户信息在页面上,以及搜索功能
-            (function () {
-                var isUserLogin = cookie.getCookie('user');
-                var user = {
-                    usersManager: null,    // 操作用户列表
-                    userInfo: null,         // 显示用户信息
-                    title: null,            // 表头
-                    user_list: null,        // 用户列表
-                    userSearch: null,       // 用户信息搜索
-                    init: function () {    // 初始化用户信息对象
-                        this.usersManager = $("#usersManager");
-                        this.userInfo = $("#userInfo");
-                        this.title = $("#title");
-                        this.user_list = $("#list");
-                        this.userSearch = $("#userSearch");
-                    }
-                };
-
-                user.init();    // 初始化获取jq对象
-
-                // 用户管理
-                // 发现一个问题，可能会形成回调地狱，我们将这些ajax操作放到promise中去执行
-                var pro = new Promise(function (success, fail) {
-                    if (isUserLogin) {   // 用来判断用户是否登录，如果登录了，那么就可以进行下面的操作
-                        success();      // 用户已登录
-                    } else {
-                        error();        // 用户未登录
-                    }
-                });
-                pro.then(function () {  // 如果用户已经登录
-                    if (isUserLogin.isAdmin) {    // 从cookie中得到用户的信息，判断用户时候时管理员用户
-                        user.userInfo.text(isUserLogin.nickname + ',' + '(管理员用户)');
-
-                        // 当点击用户管理的时候，又发送一次ajax请求
-                        user.usersManager.click(function () {
-                            user.userSearch.css('display', 'block');
-                            $("#addItem").css('display', 'none');
-                            $.get('http://localhost:3000/user/userManage', function (res) {
-                                alert(res.msg);
-                                // 如果响应码为0，表明数据成功查找，此时将数据渲染至页面
-                                if (res.code == 0) {
-
-                                    var head = `
-                                    <tr class="bg-info">
-                                        <th>
-                                             <input type="checkbox">全选
-                                        </th>
-                                          <th>姓名</th>
-                                          <th>昵称</th>
-                                          <th>管理员</th>
-                                          <th>权限</th>
-                                          <th>操作</th>
-                                   </tr>
-                                    `;
-                                    var button = new Button();
-                                    button.url = 'http://localhost:3000/user/userManage';
-                                    button.buildButton(res.totalPage);
-                                    button.pageEvent(user, isUserLogin, head, res.data);
-                                    button.rendering(user, isUserLogin, head, res.data);
-                                    button.prevPage(user, isUserLogin, head);
-                                    button.nextPage(res.totalPage, user, isUserLogin, head);
-
-                                    // 当数据展示成功之后，进行下面的操作
-                                    var pro = new Promise(function () {   // 第二个promise，避免产生回调地狱
-                                        var person = new Person();
-                                        // 获取修改和删除按钮
-                                        person.update = $(".update");
-                                        person.delete = $(".delete");
-                                        person.delete.click(function () {   // 当点击删除按钮时，将id值传递过去
-                                            person.deleteInfo($(this).attr('del'));   // 调用删除按钮的方法
-                                        });
-                                        person.updateInfo();
-                                    })
-                                }
-                            });
-                        });
-                    }
-                    else {
-
-                        // 普通用户则不显示用户管理选项
-                        user.userInfo.text(isUserLogin.nickname + ',' + '(普通用户)');
-                        user.usersManager.remove();
-                    }
-                }, function () {    // 如果用户没有登录
-                    alert('登录信息已过期，请重新登录');
-                    location.href = 'http://127.0.0.1:8080/login.html';
-                });
-
-
-                // 搜索功能
-                (function () {
-                    var searchInfo = {
-                        search: null,
-                        searchInput: null,
-                        init: function () {
-                            this.search = $("#search");
-                            this.searchInput = $("#searchInput");
-                        }
-                    };
-                    // 初始化搜索按钮
-                    searchInfo.init();
-                    searchInfo.search.click(function () {
-                        $.get('http://localhost:3000/user/search', {
-                            nickname: searchInfo.searchInput.val()
-                        }, function (res) {
-                            alert(res.msg);
-                            if (res.code == 0) {    // 如果数据查找成功
-                                var head = `
-                                    <tr class="bg-info">
-                                        <th>
-                                             <input type="checkbox">全选
-                                        </th>
-                                          <th>姓名</th>
-                                          <th>昵称</th>
-                                          <th>管理员</th>
-                                          <th>权限</th>
-                                          <th>操作</th>
-                                   </tr>
-                                    `;
-                                var button = new Button();
-                                button.rendering(user, isUserLogin, head, res.data)
-                            }
-                        });
-                    });
-                })();
-
-                // 手机管理
-                var phone = new Promise(function (success, failed) {
-                    if (isUserLogin) {   // 用来判断用户是否登录，如果登录了，那么就可以进行下面的操作
-                        success();      // 用户已登录
-                    } else {
-                        error();        // 用户未登录
-                    }
-                });
-                phone.then(function () {
-                    var $phone = $("#phone");
-                    var $addItem = $("#addItem");
-                    var $addPhone = $("#addPhone");
-                    $phone.click(function () {
-                        user.userSearch.css('display', 'none');
-                        $addItem.css('display', 'block').find('button').text('添加手机');
-                        $addItem.click(function () {
-                            $addPhone.css('display', 'block');
-                        });
-                        var pro = new Promise(function (success, failed) {
-                            $.get('http://localhost:3000/phoneManager', function (res) {
-                                alert(res.msg);
-
-                                if (res.code == 0) {
-                                    // 查找手机信息成功
-                                    var head = `
-                                <tr class="bg-info">
-                                        <th>
-                                             图片
-                                        </th>
-                                          <th>手机名称</th>
-                                          <th>所属品牌</th>
-                                          <th>官方指导价</th>
-                                          <th>二手回收价</th>
-                                          <th>操作</th>
-                                </tr>
-                                `;
-                                    user.title[0].innerHTML = head;
-                                    var html = template('phoneManage', {
-                                        array: res.data
-                                    });
-                                    console.log(res);
-                                    user.user_list[0].innerHTML = html;
-
-                                    // 实例一个按钮对象
-                                    var button = new phoneOperate();
-                                    // 点击按钮请求的地址
-                                    button.url = 'http://localhost:3000/phoneManager';
-                                    // 生成按钮的个数
-                                    button.buildButton(res.totalPage);
-                                    // 上一页
-                                    button.prevPage(user, isUserLogin, head);
-                                    // 页数的点击事件
-                                    button.pageEvent(user, isUserLogin, head);
-                                    // 下一页
-                                    button.nextPage(res.totalPage, user, isUserLogin, head);
-
-                                    // 当列表成功显示
-                                    // 实例一个手机对象
-                                    var phone = new Phone();
-                                    // 当用户点击删除按钮时
-                                    var $delete = $(".delete");
-                                    var $update = $(".update");
-                                    $("#list").on('click', '.delete', function () {
-                                        console.log(111);
-                                        phone.delete = $(this);
-                                        phone.deletePhone($(this).attr('delete'));
-                                    });
-                                    $("#list").on('click', '.update', function () {
-                                        phone.update = $(this);
-                                        phone.updatePhone($(this).attr('update'));
-                                    });
-                                    success(res);
-                                } else {
-                                    failed();
-                                }
-                            });
-                        });
-
-                    });
-                }, function () {
-                    alert('请登录');
-                    location.href = 'http://127.0.0.1:8080/login.html';
-                }).then(function (res) {
-
-
-                }, function () {
-
-                });
-            })();
-
-            // 点击退出登录
-            (function () {
-                var exit = {
-                    exit: null,
-                    init: function () {
-                        this.exit = $("#exit");
-                    }
-                };
-                exit.init(); // 初始化退出对象
-                // 当退出按钮点击时退出登录
-                exit.exit.click(function () {
-                    // 首先将cookie信息清除
-                    cookie.setCookie('user', '', new Date(0));
-                    // 清除cookie信息的同时刷新页面，此时获取不到页面的cookie信息，就会返回到登录页面
-                    location.reload();
-                });
-            })();
-
 
             // 按钮点击换页功能
 
@@ -587,8 +369,10 @@
                     var $isAdmin = $("#isAdmin");
                     var $selectPower = $("#selectPower");
                     var $sure = $("#sure");     // 确定修改按钮
+                    var $userSearch = $("#userSearch");
                     // 当用户点击修改按钮的同时，应该从后台获取到用户的数据
                     this.update.click(function () {
+                        $userSearch.fadeOut(200);   // 搜索框挡住了修改表单的显示，懒得去改了，直接让其隐藏
                         var _this = this;
                         $.get('http://localhost:3000/userInfo', {
                             id: $(_this).attr('up')
@@ -605,12 +389,16 @@
                     });
                     $update.click(function () {     // 当用户点击非表单部分时隐藏表单
                         $(this).fadeOut(200);
+                        $userSearch.fadeIn(200);        // 重新让搜索框显示出来
                     });
                     $data_form.click(function (e) {  // 阻止事件冒泡，防止用户点击到表单时表单也消失
                         e.stopPropagation();
                     });
 
+                    // 当用户点击修改按钮时
                     $sure.click(function () {
+                        // 隐藏表单域
+                        $update.fadeOut(200);
                         var data = {
                             name: $user.val(),
                             nickname: $nickname.val(),
@@ -621,6 +409,11 @@
                         };
                         $.post('http://localhost:3000/user/update', data, function (res) {
                             console.log(res);
+                            if (res.code == 0) {
+                                alert('数据修改成功')
+                            } else {
+                                alert('信息修改失败');
+                            }
                         });
                     });
 
@@ -726,6 +519,426 @@
 
                 }
             }
+
+            // 品牌管理构造函数----继承按钮点击构造函数，方便使用
+            class Brand extends Button {
+                constructor() {
+                    super();
+                }
+                // 获取数据
+                getData(url, user, isUserLogin, head, that) {
+                    var pro = new Promise(function (success, failed) {
+                        $.get(url,
+                            {
+                                page: $(that).text()
+                            }, function (res) {
+                                console.log(res);
+                                if (res.code == 0) {
+                                    success(res);
+                                } else {
+                                    failed();
+                                }
+                            }
+                        );
+                    });
+                    pro.then(function () {
+
+                    }, function () {
+
+                    });
+
+                }
+            }
+
+
+            // 自调用函数，判断用户是否登录以及显示用户信息在页面上,以及搜索功能
+            (function () {
+                var isUserLogin = cookie.getCookie('user');
+                var user = {
+                    usersManager: null,    // 操作用户列表
+                    userInfo: null,         // 显示用户信息
+                    title: null,            // 表头
+                    user_list: null,        // 用户列表
+                    userSearch: null,       // 用户信息搜索
+                    init: function () {    // 初始化用户信息对象
+                        this.usersManager = $("#usersManager");
+                        this.userInfo = $("#userInfo");
+                        this.title = $("#title");
+                        this.user_list = $("#list");
+                        this.userSearch = $("#userSearch");
+                    }
+                };
+
+                user.init();    // 初始化获取jq对象
+
+                // 用户管理
+                // 发现一个问题，可能会形成回调地狱，我们将这些ajax操作放到promise中去执行
+                var pro = new Promise(function (success, fail) {
+                    if (isUserLogin) {   // 用来判断用户是否登录，如果登录了，那么就可以进行下面的操作
+                        success();      // 用户已登录
+                    } else {
+                        error();        // 用户未登录
+                    }
+                });
+                pro.then(function () {  // 如果用户已经登录
+                    console.log(isUserLogin.isAdmin);
+                    if (isUserLogin.isAdmin == "true") {    // 从cookie中得到用户的信息，判断用户时候时管理员用户
+                        user.userInfo.text(isUserLogin.nickname + ',' + '(管理员用户)');
+
+                        // 当点击用户管理的时候，又发送一次ajax请求
+                        user.usersManager.click(function () {
+                            user.userSearch.css('display', 'block');
+                            $("#addItem").css('display', 'none');
+                            $.get('http://localhost:3000/user/userManage', function (res) {
+                                // 如果响应码为0，表明数据成功查找，此时将数据渲染至页面
+                                if (res.code == 0) {
+
+                                    var head = `
+                                    <tr class="bg-info">
+                                        <th>
+                                             <input type="checkbox">全选
+                                        </th>
+                                          <th>姓名</th>
+                                          <th>昵称</th>
+                                          <th>管理员</th>
+                                          <th>权限</th>
+                                          <th>操作</th>
+                                   </tr>
+                                    `;
+                                    var button = new Button();
+                                    button.url = 'http://localhost:3000/user/userManage';
+                                    button.buildButton(res.totalPage);
+                                    button.pageEvent(user, isUserLogin, head, res.data);
+                                    button.rendering(user, isUserLogin, head, res.data);
+                                    button.prevPage(user, isUserLogin, head);
+                                    button.nextPage(res.totalPage, user, isUserLogin, head);
+
+                                    // 当数据展示成功之后，进行下面的操作
+                                    var pro = new Promise(function () {   // 第二个promise，避免产生回调地狱
+                                        var person = new Person();
+                                        // 获取修改和删除按钮
+                                        person.update = $(".update");
+                                        person.delete = $(".delete");
+                                        person.delete.click(function () {   // 当点击删除按钮时，将id值传递过去
+                                            person.deleteInfo($(this).attr('del'));   // 调用删除按钮的方法
+                                        });
+                                        person.updateInfo();
+                                    })
+                                } else {
+                                    alert(res.msg);
+                                }
+                            });
+                        });
+                    }
+                    else {
+
+                        // 普通用户则不显示用户管理选项
+                        user.userInfo.text(isUserLogin.nickname + ',' + '(普通用户)');
+                        user.usersManager.remove();
+                    }
+                }, function () {    // 如果用户没有登录
+                    alert('登录信息已过期，请重新登录');
+                    location.href = 'http://127.0.0.1:8080/login.html';
+                });
+
+
+                // 搜索功能
+                (function () {
+
+                    var searchInfo = {
+                        search: null,
+                        searchInput: null,
+                        init: function () {
+                            this.search = $("#search");
+                            this.searchInput = $("#searchInput");
+                        }
+                    };
+                    // 初始化搜索按钮
+                    searchInfo.init();
+                    searchInfo.search.click(function () {
+                        $.get('http://localhost:3000/user/search', {
+                            nickname: searchInfo.searchInput.val()
+                        }, function (res) {
+                            alert(res.msg);
+                            if (res.code == 0) {    // 如果数据查找成功
+                                var head = `
+                                    <tr class="bg-info">
+                                        <th>
+                                             <input type="checkbox">全选
+                                        </th>
+                                          <th>姓名</th>
+                                          <th>昵称</th>
+                                          <th>管理员</th>
+                                          <th>权限</th>
+                                          <th>操作</th>
+                                   </tr>
+                                    `;
+                                var button = new Button();
+                                button.rendering(user, isUserLogin, head, res.data)
+                            }
+                        });
+                    });
+
+                })();
+
+                // 手机管理
+                var phone = new Promise(function (success, failed) {
+                    if (isUserLogin) {   // 用来判断用户是否登录，如果登录了，那么就可以进行下面的操作
+                        success();      // 用户已登录
+                    } else {
+                        error();        // 用户未登录
+                    }
+                });
+                phone.then(function () {
+                    var $phone = $("#phone");
+                    var $addItem = $("#addItem");
+                    var $addPhone = $("#addPhone");
+                    $phone.click(function () {
+                        user.userSearch.css('display', 'none');
+                        $addItem.css('display', 'block').find('button').text('添加手机');
+                        $addItem.click(function () {
+                            $addPhone.css('display', 'block');
+                        });
+                        var pro = new Promise(function (success, failed) {
+                            $.get('http://localhost:3000/phoneManager', function (res) {
+                                if (res.code == 0) {
+                                    // 查找手机信息成功
+                                    var head = `
+                                <tr class="bg-info">
+                                        <th>
+                                             图片
+                                        </th>
+                                          <th>手机名称</th>
+                                          <th>所属品牌</th>
+                                          <th>官方指导价</th>
+                                          <th>二手回收价</th>
+                                          <th>操作</th>
+                                </tr>
+                                `;
+                                    user.title[0].innerHTML = head;
+                                    var html = template('phoneManage', {
+                                        array: res.data
+                                    });
+                                    console.log(res);
+                                    user.user_list[0].innerHTML = html;
+
+                                    // 实例一个按钮对象
+                                    var button = new phoneOperate();
+                                    // 点击按钮请求的地址
+                                    button.url = 'http://localhost:3000/phoneManager';
+                                    // 生成按钮的个数
+                                    button.buildButton(res.totalPage);
+                                    // 上一页
+                                    button.prevPage(user, isUserLogin, head);
+                                    // 页数的点击事件
+                                    button.pageEvent(user, isUserLogin, head);
+                                    // 下一页
+                                    button.nextPage(res.totalPage, user, isUserLogin, head);
+
+                                    // 当列表成功显示
+                                    // 实例一个手机对象
+                                    var phone = new Phone();
+                                    // 当用户点击删除按钮时
+                                    var $delete = $(".delete");
+                                    var $update = $(".update");
+                                    $("#list").on('click', '.delete', function () {
+                                        console.log(111);
+                                        phone.delete = $(this);
+                                        phone.deletePhone($(this).attr('delete'));
+                                    });
+                                    $("#list").on('click', '.update', function () {
+
+                                        phone.update = $(this);
+                                        phone.updatePhone($(this).attr('update'));
+                                    });
+                                    success(res);
+                                } else {
+                                    alert(res.msg);
+                                    failed();
+                                }
+
+                            });
+                        });
+
+                    });
+                }, function () {
+                    alert('请登录');
+                    location.href = 'http://127.0.0.1:8080/login.html';
+                }).then(function (res) {
+
+
+                }, function () {
+
+                });
+
+                // 品牌管理
+                // 使用promise避免产生回调地狱
+
+                var brandM = new Promise(function (success, failed) {
+                    // 实例化品牌管理
+
+                    try {
+                        var $addItem = $("#addItem");
+                        var $addPhone = $("#addPhone");
+                        var brandManager = new Brand();
+                        brandManager.pinpai = $("#pinpai");
+                        brandManager.url = 'http://localhost:3000/brandManager'
+                        // 当品牌管理点击时，发送一个ajax请求，从后端获取品牌数据
+                        brandManager.pinpai.click(function () {
+                            user.userSearch.css('display', 'none');
+                            $addItem.css('display', 'block').find('button').text('添加品牌');
+
+                            // 当点击添加品牌时
+                            $addItem.find('button').click(function () {
+                                var html = `
+                                    <div class="brand" style="text-align: center;position:absolute;top:50%;left:50%;transform: translate(-50%,-50%);">
+                                     
+                                            <h1>添加品牌</h1>
+                                            品牌logo图 <input type="file" name='logo' id='logoImg' accept="image/*" style="margin-bottom: 20px;">
+                                            品牌名称 <input type="text" name="brand" id="brandName"><br>
+                                            <b id="addBrand" style="display:inline-block;width:50px;height:30px;background: pink;line-height:30px;cursor:pointer;">添加</b>
+                                         
+                                    </div>
+                                `;
+                                $addPhone.fadeIn(200).html($(html));
+
+                                // 阻止事件冒泡
+                                $addPhone.find('.brand').click(function (e) {
+                                    e.stopPropagation();
+                                });
+
+                                // 添加品牌按钮点击时
+                                $("#addBrand").click(function () {
+                                    var data = new FormData();
+                                    data.append('brandName', $("#brandName").val());
+                                    data.append('picture', $("#logoImg")[0].files[0]);
+                                    $.ajax({
+                                        url: 'http://localhost:3000/addBrand',
+                                        data: data,
+                                        type: 'post',
+                                        processData: false,
+                                        contentType: false,
+                                        cache: false,
+                                        success: function () {
+                                            alert("添加成功");
+                                        },
+                                        error: function () {
+                                            alert("添加失败");
+                                        }
+                                    });
+                                });
+                            });
+
+                            $addPhone.click(function () {   // 当点击空白处时隐藏添加logo
+                                $(this).fadeOut(200);
+                            });
+
+                            console.log(111);
+                            var head = `
+                            <tr class="bg-info">
+                                    <th>logo</th>
+                                    <th>品牌</th>
+                                    <th>操作</th>
+                                   </tr>
+                        `;
+                            var $title = $("#title");
+                            var $list = $("#list");
+                            console.log($title);
+                            $title.html($(head));
+                            $.get(brandManager.url, {
+
+                            }, function (res) {
+                                console.log(res);
+                                var html = template('brandHTML', {
+                                    array: res.data
+                                });
+                                $list[0].innerHTML = html;
+
+                                // 事件委托删除    
+                                $list.on('click', '.delete', function () {
+                                    var _this = $(this);
+                                    $.post('http://localhost:3000/brandManager/delete', {
+                                        id: _this.attr('delete')
+                                    }, function (res) {
+                                        if (res.code == 0) {
+                                            _this.parent().parent().remove();
+                                        } else {
+                                            alert(res.msg)
+                                        }
+                                    });
+                                });
+
+                                // 事件委托修改
+                                $list.on('click', '.update', function () {
+                                    var _this = $(this);
+                                    var idUpdate = _this.attr('update');
+                                    var html = `
+                                    <div class="brand" style="text-align: center;position:absolute;top:50%;left:50%;transform: translate(-50%,-50%);">
+                                     
+                                            <h1>修改品牌</h1>
+                                            品牌logo图 <input type="file" name='logo' id='updateLogo' accept="image/*" style="margin-bottom: 20px;">
+                                            品牌名称 <input type="text" name="brandName" id="updateBrand" value="${_this.parent().parent().find('td').eq(1).text()}"><br>
+                                            <b id="updateBrandBtn" style="display:inline-block;width:50px;height:30px;background: pink;line-height:30px;cursor:pointer;">修改</b>
+                                         
+                                    </div>
+                                `;
+                                    $addPhone.fadeIn(200).html($(html));
+                                    // 阻止事件冒泡
+                                    $addPhone.find('.brand').click(function (e) {
+                                        e.stopPropagation();
+                                    });
+                                    // 当点击修改按钮时
+                                    var $updateBrandBtn = $("#updateBrandBtn");
+                                    $updateBrandBtn.click(function () {
+                                        console.log(idUpdate);
+                                        var formData = new FormData();
+                                        formData.append('logo', $("#updateLogo")[0].files[0]);
+                                        formData.append('brandName', $("#updateBrand").val());
+                                        formData.append('id', idUpdate);
+                                        $.ajax({
+                                            url: 'http://localhost:3000/brandManager/update',
+                                            data: formData,
+                                            type: 'post',
+                                            processData: false,
+                                            contentType: false,
+                                            success: function (res) {
+                                                if (res.code != 0) {
+                                                    alert('修改失败');
+                                                }
+                                            }
+                                        })
+                                    })
+                                });
+                            });
+
+                        });
+                    } catch (error) {
+                        console.log(error);
+                    }
+                });
+
+            })();
+
+            // 点击退出登录
+            (function () {
+                var exit = {
+                    exit: null,
+                    init: function () {
+                        this.exit = $("#exit");
+                    }
+                };
+                exit.init(); // 初始化退出对象
+                // 当退出按钮点击时退出登录
+                exit.exit.click(function () {
+                    // 首先将cookie信息清除
+                    cookie.setCookie('user', '', new Date(0));
+                    // 清除cookie信息的同时刷新页面，此时获取不到页面的cookie信息，就会返回到登录页面
+                    location.reload();
+                });
+            })();
+
+
+
         });
     </script>
 </body>
